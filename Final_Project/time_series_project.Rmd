@@ -1,0 +1,825 @@
+---
+title: "Time Series Analysis of Average House Sales Prices"
+author: "Victoria Agboola"
+date: "2024-04-29"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Abstract
+
+In this comprehensive study, I explored the modeling of average house sales prices in the United States from January 1963 to October 2023. The initial phase of my analysis involved deterministic trend fitting and seasonal adjustments, which unfortunately proved inadequate in capturing the complexity of the data, as diagnosed by persistent autocorrelation in the residuals. To address these shortcomings, I pivoted to the more sophisticated AutoRegressive Integrated Moving Average (ARIMA) modeling technique. This shift was motivated by ARIMA's ability to effectively manage non-stationarity and enhance forecast accuracy through its integration of differencing. The models I developed included a Moving Average (MA) of order 4, an Autoregressive (AR) of order 4, and an optimally selected ARIMA(2,2,1) model. Each model underwent a thorough diagnostic check to ensure adequacy and then faced evaluation against a reserved test set. The evaluation results revealed that the ARIMA(2,2,1) model exhibited the best performance, characterized by the most favorable Mean Absolute Error (MAE), Mean Squared Error (MSE), and Mean Absolute Percentage Error (MAPE). These findings underscore the robustness of ARIMA modeling in capturing and forecasting the dynamics of the housing market time series data, with the ARIMA(2,2,1) model standing out as a particularly effective forecasting tool.
+
+
+## Introduction
+
+This report analyzes the average sales prices of houses in the United States, utilizing a dataset spanning from January 1963 to October 2023. The data, obtained from the Federal Reserve Economic Data (FRED) repository under the series "ASPUS," is reported quarterly and denominated in U.S. dollars. It represents a comprehensive measure of housing market trends over a significant period, offering insights into both economic stability and consumer confidence.
+
+The objective of this analysis is to dissect and understand the underlying patterns in the housing market, encapsulated by the sales prices. Recognizing trends, seasonalities, and cycles within this time series data not only serves as an academic endeavor but also provides practical forecasting models that can inform stakeholders and policymakers in their decision-making processes.
+
+Employing time series analytical techniques, this project endeavors to model the complexities inherent in economic data, such as non-stationarity and seasonality. The process entails rigorous exploratory data analysis, the application of various time series models, and the evaluation of these models based on their predictive performance.
+
+The following sections will offer a detailed account of the exploratory data analysis conducted, describe the rationale behind the selection of specific time series models, and discuss the results derived from this methodical approach. This investigation culminates in a set of conclusions that synthesize findings, limitations, and prospective avenues for future research in the field.
+
+
+### Data Analysis
+
+To begin the analysis, I loaded the quarterly average house sales price data from 1963 to 2023 into the analysis environment and formatted it as a time series. This conversion is crucial as it allows for the effective application of various time series analysis techniques later on in the study.
+
+```{r, echo=FALSE, message=FALSE}
+data <- read.csv("/Users/victoriaa/Desktop/STAT5825/DATA/ASPUS.csv")
+aspus <- ts(data$ASPUS, start = c(1963, 1), frequency = 4)
+attributes(aspus)
+length(aspus)
+```
+
+Following the initial data structuring, a detailed visualization was created to better understand the trends and fluctuations over the decades.
+
+
+```{r, echo=FALSE, message=FALSE, fig.cap="Average Sales Prices of Houses Sold 1963 - 2023"}
+plot(aspus, ylab="Quarterly Sales Prices(Dollars)", main="Average Sales Prices of Houses Sold 1963 - 2023")
+```
+
+Figure 1 illustrates the quarterly sales prices of houses across the United States from 1963 to 2023. The graph effectively captures the significant trends and fluctuations in the housing market, emphasizing the long-term growth despite periodic volatilities. The upward trend and occasional sharp dips observed in the plot reflect the broader economic conditions influencing the housing market. This visual representation aids in providing a clear perspective on the overall market stability and investment potential, offering an intuitive understanding of the market’s historical trends.
+
+
+
+```{r echo=FALSE, fig.cap="ACF plot of Quarterly Sales Prices"}
+acf(aspus, lag.max = 48, main="Sample ACF")
+```
+
+Following this initial visualization, Figure 2 presents the ACF plot showing the correlation of the time series with itself at different lags. This plot is essential for identifying the extent of serial dependence within the data, which is crucial for the choice of subsequent statistical modeling approaches. The persistence of autocorrelation across multiple lags indicates that past values have a considerable influence on future values, underscoring the need for models that can incorporate this dependency.
+
+### Polynomial Trend Analysis
+
+In the initial phase of the analysis, I segmented the dataset into a training set, spanning from 1963 to 2011, and a testing set covering the years 2012 to 2023. This division aimed to evaluate the effectiveness of polynomial trend regression models in capturing the nuanced trends observed in the historical housing market data. By exploring polynomial trends, ranging from linear to potentially higher-order trends, I sought to gain insights into the underlying dynamics driving housing prices over time. This approach served as a preliminary exploration to discern the presence of any discernible trends and paved the way for further analyses aimed at uncovering the complexities inherent in the dataset.
+
+```{r, echo=FALSE, results='hide'}
+train=aspus[1:196]
+n_train=length(train) 
+# Holdout Portion: aspus from 2012:2023
+test=aspus[197:244]
+n_test=length(test) 
+
+n_train
+n_test
+```
+
+
+
+```{r, echo=FALSE, results='hide', fig.show='hide'}
+ts.plot(train)
+
+```
+
+
+```{r, echo=FALSE, results='hide'}
+tfit=time(train)
+
+mlr.lin = lm(train~tfit)
+summary(mlr.lin)
+```
+
+
+
+
+```{r, echo=FALSE, results='hide', fig.show='hide'}
+par(mfrow=c(2,2)) 
+plot(mlr.lin, main="",which = 1:4)
+```
+
+
+
+
+```{r, echo=FALSE, results='hide'}
+tsqfit=tfit^2/factorial(2)
+mlr.quad=lm(train~tfit+tsqfit)
+summary(mlr.quad)
+```
+
+```{r, echo=FALSE, results='hide', fig.show='hide'}
+# Residual Diagnostic Plots for mlr.quad
+par(mfrow=c(2,2)) # plot 4 figures, 2 in each of 2 rows
+plot(mlr.quad, main="",which = 1:4)
+```
+
+
+```{r, echo=FALSE, results='hide'}
+tcubfit=tfit^3/factorial(3)
+mlr.cub=lm(train~tfit+tsqfit+tcubfit)
+summary(mlr.cub)
+```
+
+
+
+```{r, echo=FALSE, results='hide', fig.show='hide'}
+# Residual Diagnostic Plots for mlr.cub
+par(mfrow=c(2,2)) # plot 4 figures, 2 in each of 2 rows
+plot(mlr.cub, main="",which = 1:4)
+
+```
+
+
+To explore the potential of polynomial trend models in capturing the intricate dynamics of housing price trends, I proceeded to fit linear, quadratic, and cubic trend models to the training dataset. Beginning with a linear trend model, I used ordinary least squares regression to fit a straight line to the data, providing a baseline for comparison. Next, I extended the analysis to quadratic and cubic trends, incorporating polynomial terms of degree two and three, respectively, to capture potential non-linear patterns in the data. Each model's adequacy was visually assessed through residual diagnostic plots, which included plots of residuals against fitted values, quantile-quantile plots, scale-location plots, and residual histograms. These plots provided insights into the presence of any patterns or systematic deviations in the residuals, aiding in the evaluation of the models' suitability for capturing the underlying trends in the housing price data.
+
+```{r, echo=FALSE, fig.show='hold', fig.pos="h"}
+par(mfrow=c(2,2))
+ts.plot(train) # Time Series Plot
+# Plot of xfit vs mlr.lin$fitted
+plin=cbind(train,mlr.lin$fitted)
+ts.plot(plin,main="train and linear fit")
+pquad=cbind(train,mlr.quad$fitted)
+ts.plot(pquad,main="train and quadratic fit")
+pcub=cbind(train,mlr.cub$fitted)
+ts.plot(pcub,main="train and cubic fit")
+```
+
+
+
+```{r, echo=FALSE, results='hide'}
+anova(mlr.lin)
+```
+
+```{r, echo=FALSE, results='hide'}
+anova(mlr.cub)
+```
+
+```{r, echo=FALSE, results='hide'}
+# Perform ANOVA on linear and cubic models, extracting residuals' sum of squares, mean square, and degrees of freedom.
+
+anova_lin <- anova(mlr.lin)
+anova_cub <- anova(mlr.cub)
+red_ss <- anova_lin["Residuals", "Sum Sq"]
+red_ms <- anova_lin["Residuals", "Mean Sq"]
+red_df <- anova_lin["Residuals", "Df"]
+full_ss <- anova_cub["Residuals", "Sum Sq"]
+full_ms <- anova_cub["Residuals", "Mean Sq"]
+full_df <- anova_cub["Residuals", "Df"]
+red_ss
+full_ss
+full_ms
+full_df
+
+```
+
+```{r, echo=FALSE, results='hide'}
+# computing the Extra SS F-stat
+
+extra_ss <- red_ss - full_ss
+extra_df <- red_df - full_df
+
+extra_ss_fstat <- (extra_ss/extra_df)/full_ms
+
+extra_ss
+extra_df
+extra_ss_fstat
+```
+
+```{r, echo=FALSE, results='hide'}
+# F-critical value
+
+qf(0.95,2,full_df)
+```
+
+
+After fitting linear, quadratic, and cubic trend models to the dataset, the next step was to select the most appropriate model among them. This model selection process involved comparing the full model (cubic trend model) to the simpler linear model using ANOVA test. The ANOVA test results indicated a preference for the full model. Additionally, the Akaike Information Criterion (AIC) was calculated for each model, with the cubic trend model exhibiting the lowest AIC value, further supporting its preference over the linear and quadratic models.
+
+```{r, echo=FALSE, results='show'}
+AIC.lin = AIC(mlr.lin)/n_train
+AIC.quad = AIC(mlr.quad)/n_train
+AIC.cub = AIC(mlr.cub)/n_train
+
+cat("The AIC for linear fit is:", AIC.lin, "\n")
+cat("The AIC for quadratic fit is:", AIC.quad, "\n")
+cat("The AIC for cubic fit is:", AIC.cub, "\n")
+```
+
+
+
+
+### Seasonality Fitting Using Regression with Seasonal Indicators
+
+```{r, echo=FALSE, results='hide'}
+tfit=time(train)
+
+per = 4
+sets = n_train/per
+quarter = factor(rep(1:per, sets))
+ind.model = lm(train~tfit+quarter -1)
+summary(ind.model)
+
+```
+
+
+```{r, echo=FALSE, results='hide'}
+tfit=time(train)
+tsqfit=tfit^2/factorial(2)
+per = 4
+sets = n_train/per
+quarter = factor(rep(1:per, sets))
+ind.model1 = lm(train~tfit+tsqfit+quarter -1)
+summary(ind.model1)
+
+```
+
+
+```{r, echo=FALSE, results='hide'}
+tfit=time(train)
+tsqfit=tfit^2/factorial(2)
+tcubfit=tfit^3/factorial(3)
+per = 4
+sets = n_train/per
+quarter = factor(rep(1:per, sets))
+ind.model2 = lm(train~tfit+tsqfit+tcubfit+quarter -1)
+summary(ind.model2)
+
+```
+
+```{r, echo=FALSE, results='hide', fig.show='hide'}
+ts.plot(train,main="Quarterly Average Sales Prices of Houses Sold")
+lines(ind.model$fit, col="blue", lty="dashed", lwd=2)
+```
+
+```{r, echo=FALSE, results='hide', fig.show='hide'}
+ts.plot(train,main="Quarterly Average Sales Prices of Houses Sold")
+lines(ind.model1$fit, col="blue", lty="dashed", lwd=2)
+```
+
+
+```{r, echo=FALSE, results='hide', fig.show='hide'}
+ts.plot(train,main="Quarterly Average Sales Prices of Houses Sold")
+lines(ind.model2$fit, col="blue", lty="dashed", lwd=2)
+```
+
+In this section, seasonal indicators were incorporated into the regression model to account for any recurring patterns or fluctuations in the housing price data. Three models were fitted: one with linear trends and seasonal indicators, another with quadratic trends and seasonal indicators, and a third with cubic trends and seasonal indicators. Each model aimed to capture the seasonal variations present in the dataset and assess their impact on housing prices over time. The models were evaluated based on their coefficients and goodness-of-fit statistics to determine the effectiveness of incorporating seasonal indicators in modeling the housing market trends.
+
+
+
+```{r, echo=FALSE, results='hide', fig.show='hide'}
+# in sample prediction error evaluation
+AIC.ind1 <- AIC(ind.model1)/n_train
+AIC.ind2 = AIC(ind.model2)/n_train
+
+AIC.ind1
+AIC.ind2
+```
+
+```{r, echo=FALSE, results='hide', fig.show='hide'}
+# in sample prediction error evaluation
+BIC.ind1 <- BIC(ind.model1)/n_train
+BIC.ind2 <- BIC(ind.model2)/n_train
+
+BIC.ind1
+BIC.ind2
+```
+
+
+```{r, include=FALSE}
+# out-of-sample prediction errors MSE & MAPE
+test_tfit=seq(n_train + 1, length.out = n_test, by = 1)
+test_tsqfit=test_tfit^2/factorial(2)
+
+per = 4
+test_sets = n_test/per
+test_quarter = factor(rep(1:per, test_sets))
+newind1 <- data.frame(tfit=test_tfit, tsqfit=test_tsqfit, quarter=test_quarter)
+pfore.ind1 <- predict(ind.model1, newind1, se.fit = TRUE)
+efore.ind1=test-pfore.ind1$fit # Forecast errors
+mse.ind1=sum(efore.ind1**2)/n_test
+mae.ind1=mean(abs(efore.ind1))
+mape.ind1=100*(mean(abs((efore.ind1)/test)))
+
+
+mse.ind1
+mae.ind1
+mape.ind1
+```
+
+
+
+
+```{r, include=FALSE}
+# out-of-sample prediction errors MSE & MAPE
+test_tfit=seq(n_train + 1, length.out = n_test, by = 1)
+test_tsqfit=test_tfit^2/factorial(2)
+test_tcubfit=test_tfit^3/factorial(3)
+per = 4
+test_sets = n_test/per
+test_quarter = factor(rep(1:per, test_sets))
+newind2 <- data.frame(tfit=test_tfit, tsqfit=test_tsqfit, tcubfit=test_tcubfit, quarter=test_quarter)
+pfore.ind2 <- predict(ind.model2, newind2, se.fit = TRUE)
+efore.ind2=test-pfore.ind2$fit # Forecast errors
+mse.ind2=sum(efore.ind2**2)/n_test
+mae.ind2=mean(abs(efore.ind2))
+mape.ind2=100*(mean(abs((efore.ind2)/test)))
+
+
+mse.ind2
+mae.ind2
+mape.ind2
+```
+
+
+```{r, echo=FALSE, results='show', fig.cap="Performance Metrics for Polynomial Fitting with Seasonal Indicators"}
+library(tibble)
+models <- c("Quadratic Model with Seasonal Indicators", "Cubic Model with Seasonal Indicators")
+AIC <- c(AIC.ind1, AIC.ind2)
+MSE <- c(mse.ind1, mse.ind2)
+MAE <- c(mae.ind1, mae.ind2)
+MAPE <- c(mape.ind1, mape.ind2)
+result_df <- tibble(Model = models, AIC = AIC, MSE = MSE, MAE = MAE, MAPE = MAPE )
+result_df
+```
+
+
+The assessment of model fit involved analyzing in-sample and out-of-sample prediction errors using AIC, mean squared error (MSE), mean absolute error (MAE), and mean absolute percentage error (MAPE) metrics. On the training set, the model with a cubic trend and seasonal indicators demonstrated better performance based on the information criterion estimation. However, when evaluating the models on the test data, the quadratic model with seasonal indicators exhibited superior performance, showcasing smaller MSE, MAE, and MAPE values. Despite slight differences in goodness-of-fit statistics, the emphasis on out-of-sample predictive accuracy favored the quadratic model for forecasting purposes. This prioritization of out-of-sample performance underscores the model's ability to generalize effectively to unseen data, enhancing its reliability for future forecasts.
+
+
+### Detrending Fitted Models
+
+To evaluate the adequacy of the models, a thorough examination of the residuals was conducted by detrending each model's output. This involved extracting the residuals from the linear, quadratic, and cubic trend models with seasonal indicators. Subsequently, the autocorrelation functions (ACFs) of the detrended time series were scrutinized in comparison to the observed series. Despite initial expectations of achieving model adequacy through deterministic trend fitting, the ACF plots revealed persistent autocorrelation with slow decay in the detrended series. This outcome suggests that the deterministic components of the models alone were insufficient to capture the nuanced dynamics of the time series. As a result, it becomes evident that additional modeling considerations are necessary to fully account for the stochastic elements inherent in the data.
+
+```{r, include=FALSE}
+detrended_lin_ts <- ts(ind.model$residuals, start = c(1963, 1), frequency = 4) # detrended time series based on model 1
+detrended_quad_ts <- ts(ind.model1$residuals, start = c(1963, 1), frequency = 4) # detrended time series based on model 2
+detrended_cub_ts <- ts(ind.model2$residuals, start = c(1963, 1), frequency = 4) # detrended time series based on model 3
+
+```
+
+
+
+```{r, echo=FALSE, fig.show='asis', fig.cap="Detrended Time Series"}
+par(mfrow=c(2,2))
+acf(train, lag.max=48, main="Observed")
+acf(detrended_lin_ts, lag.max=48, main="Linear detrended")
+acf(detrended_quad_ts, lag.max=48, main="Quadratic detrended")
+acf(detrended_cub_ts, lag.max=48, main="Cubic detrended")
+
+```
+
+
+## Transition to ARIMA Modeling 
+
+After evaluating the detrending methods, it became apparent that they were insufficient in capturing the complexity of the time series data. Residual checks revealed persistent non-stationarity, indicating the shortcomings of deterministic approaches. Consequently, a transition to ARIMA modeling was pursued.
+
+ARIMA offers an integrated solution, accounting for trends and fluctuations within the data itself. Its capability to handle non-stationarity and potential for enhanced forecast accuracy make it a logical next step. Model diagnostics will be employed to confirm the suitability of this approach.
+
+The decision to adopt ARIMA aligns with the goal of developing a robust model capable of accurately capturing and predicting the time series data.
+
+
+```{r, include=FALSE}
+ts.plot(aspus, main="Quarterly House Sales Price")
+
+```
+
+```{r, include=FALSE}
+acf(aspus)
+```
+
+The sample ACF in Figure 2 typically shows slow decay as the lag increases, we may consider the series to be nonstationary. We also see the upward trend in the time series plot in Figure 1.
+ 
+We may consider the differenced series:
+
+```{r, echo=FALSE, fig.cap="Time series with single differencing"}
+ts.plot(diff(aspus))
+```
+
+The time series displays increased volatility in the later years following a single differencing. To address this, the data were transformed into growth rates by taking the difference of the logarithms, which helps to stabilize the variance across the series.
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Time Series and ACF plot of Growth Rate"}
+library(TSA)
+par(mfrow=c(1,2))
+ts.plot(diff(log(aspus)),main="Growth Rate of Quarterly US ASP")
+acf(as.vector(diff(log(aspus))), main="", lag.max = 60)
+```
+
+
+ We then used the Augmented Dickey-Fuller (ADF) unit root tests to check the stationarity of the growth rate.
+
+
+```{r, echo=FALSE, include=FALSE}
+ar( diff(log(aspus)))
+```
+
+```{r, echo=FALSE, results="show", warning=FALSE}
+library(fUnitRoots)
+adfTest( diff(log(aspus)), lags=7, type = "c")
+```
+Upon confirmation of stationarity, the next step involved identifying potential models by examining the autocorrelation function (ACF) of the differenced log series. This approach aimed to uncover any significant autocorrelation patterns that could inform the selection of an appropriate model.
+
+
+
+### Identifying p and q for ARIMA model
+
+```{r}
+### Split the time series into calibration portion and holdout portion
+aspusgr <- log(aspus)
+aspusgr.all=aspusgr
+aspusgr.calib=aspusgr.all[1:231]
+aspusgr.hold=aspusgr.all[232:243]
+
+```
+
+```{r, echo=FALSE, fig.show="hide", fig.cap="Growth Rate of Quarterly Average Sale Prices"}
+par(mfrow=c(1,1), mar=c(4,4,3,3))
+ts.plot(diff(aspusgr.calib),main="Growth Rate Quarterly US ASP: Calibration data")
+```
+
+```{r, echo=FALSE, results='hide', fig.cap="Sample ACF of Growth Rate"}
+# Identification of MA model via acf
+library(TSA)
+par(mfrow=c(1, 2))
+acf(diff(aspusgr.calib), main="Sample ACF of Growth Rate") 
+pacf(diff(aspusgr.calib), main="Sample PACF")
+```
+
+
+To identify the appropriate model for the stationary series, I employed the autocorrelation function (ACF) and partial autocorrelation function (PACF) plots. These plots revealed significant spikes at specific lags, providing valuable insights into the underlying structure of the time series. In particular, the ACF plot displayed notable spikes at lag 4 and lag 20, while the PACF plot exhibited significant spikes at lag 4 and lag 5.
+
+In line with the principle of parsimony, I opted to begin with a Moving Average (MA) model of order 4 (MA(4)) to ascertain its ability to capture the complexity of the data and serve as a suitable framework for forecasting purposes. This decision was guided by the observed spikes in the ACF and PACF plots, indicating potential dependencies at these lags. By starting with a MA(4) model, I aimed to strike a balance between model simplicity and predictive capability, laying the groundwork for further model refinement and evaluation.
+
+
+\newpage
+
+The following output shows a summary of the MA(4) or ARIMA(0,1,4) model on the growth rate calibration data:
+```{r, echo=FALSE, results='show'}
+aspusgr.ma4.mle <- TSA::arima(aspusgr.calib, order=c(0,1,4), include.mean=TRUE)
+aspusgr.ma4.mle
+```
+
+
+```{r, include=FALSE}
+#ar2.resid=na.omit(gnpgr.ar1.cls1$residuals)
+ma4.resid=na.omit(aspusgr.ma4.mle$residuals)
+length(ma4.resid)
+```
+
+
+
+
+```{r, echo=FALSE, fig.pos='h', fig.cap="Residual Diagnostic Plots of MA(4)"}
+par(mfrow=c(2,2))
+ts.plot(ma4.resid,main="Residuals from MA(4) fit" )
+qqnorm(ma4.resid,main="Normal Q-Q plot",xlab="resid"); qqline(ma4.resid)
+acf(as.numeric(ma4.resid), lag.max=40, main="")
+pacf(as.numeric(ma4.resid),lag.max=40, main="")
+
+```
+
+
+```{r, echo=FALSE, include=FALSE}
+# Shapiro-Wilk test for normality
+shapiro.test(ma4.resid)
+```
+
+
+```{r, echo=FALSE, results='asis'}
+Box.test(ma4.resid, lag=4, type="Ljung", fitdf=1)
+Box.test(ma4.resid, lag=8, type="Ljung", fitdf=1)
+Box.test(ma4.resid, lag=12, type="Ljung", fitdf=1)
+```
+
+
+```{r, echo=FALSE, include=FALSE}
+# forecast on holdout 12 quarters ahead
+aspusgr.ma4.fore <- predict(aspusgr.ma4.mle, n.ahead=12)
+aspusgr.ma4.fore
+```
+
+
+After fitting the MA(4) model and estimating its coefficients, the next step involved extracting the residuals to perform model diagnostics and assess its adequacy. The autocorrelation function (ACF) and partial autocorrelation function (PACF) plots of the residuals revealed patterns indicative of white noise, with no discernible autocorrelation present. This observation was further confirmed through the Ljung-Box test applied at intervals of 4, 8, and 12, all yielding p-values greater than 0.05, indicating the absence of significant autocorrelation effects in the model.
+
+Furthermore, a normality test using the Shapiro-Wilk test affirmed the normal distribution of the residuals. With the adequacy of the MA(4) model confirmed, predictions were made on the holdout set, with a forecast horizon of 12 time periods. Additionally, a 95% confidence interval was computed for the predictions, providing a measure of uncertainty. The time series plot of the actual values overlaid with the predicted values offered visual insights into the model's predictive performance and its ability to capture the underlying patterns in the data.
+
+
+
+```{r, echo=FALSE, fig.show='hold', fig.pos="h", fig.cap="Actual sales prices of houses (solid line) overlaid with MA(4) model predictions (red points) and 95% confidence intervals (blue dashed lines)"}
+# 95% z-intervals
+U.ma4.95 <- aspusgr.ma4.fore$pred + 1.96*aspusgr.ma4.fore$se
+L.ma4.95 <- aspusgr.ma4.fore$pred - 1.96*aspusgr.ma4.fore$se
+quarter = 190:243
+plot(quarter,aspusgr[quarter],type="o",xlim=c(190,250),
+ylab="Price",ylim=c(min(L.ma4.95), max(U.ma4.95))) # data
+lines(aspusgr.ma4.fore$pred,col="red",type="o") # point forecasts
+lines(U.ma4.95,col="blue",lty="dashed") # upper limit
+lines(L.ma4.95,col="blue",lty="dashed") # lower limit
+```
+
+Lastly, I evaluated the prediction error on the holdout set using Mean Absolute Error (MAE), Mean Squared Error (MSE), and Mean Absolute Percentage Error (MAPE). This analysis provides insights into the accuracy and reliability of the model's forecasts on unseen data.
+
+
+\newpage
+
+```{r, echo=FALSE, include=FALSE}
+### Forecast Evaluation Criteria based on Holdout Prediction
+err.ma4=aspusgr.hold - aspusgr.ma4.fore$pred
+me.ma4=mean(err.ma4)
+mpe.ma4=100*(mean(err.ma4/aspusgr.hold))
+mse.ma4=sum(err.ma4**2)/length(err.ma4)
+mae.ma4=mean(abs(err.ma4))
+mape.ma4=100*(mean(abs((err.ma4)/aspusgr.hold)))
+mae.ma4
+mse.ma4
+mape.ma4
+```
+
+
+### AR(4)
+
+After completing the fitting and evaluation of the MA(4) model, I proceeded to explore the adequacy of an AR(4) model. This decision stemmed from observing a significant spike at lag 4 in the partial autocorrelation function (PACF) plot, prompting an investigation into whether an autoregressive model might be suitable. Additionally, considering various model options is essential for selecting the best model for forecasting purposes.
+
+
+```{r, echo=FALSE, results="show"}
+aspusgr.ar4.mle = TSA::arima(aspusgr.calib, order=c(4,1,0),include.mean=TRUE)
+aspusgr.ar4.mle
+```
+
+
+```{r, include=FALSE}
+ar4.resid=na.omit(aspusgr.ar4.mle$residuals)
+```
+
+
+```{r, echo=FALSE, fig.cap="Residual Diagnostic Plots of AR(4)", fig.show='hold', fig.pos="H"}
+library(TSA)
+par(mfrow=c(2,2))
+ts.plot(ar4.resid,main="Residuals from AR(4) fit" )
+qqnorm(ar4.resid,main="Normal Q-Q plot",xlab="resid"); qqline(ar4.resid)
+acf(as.numeric(ar4.resid), lag.max=40, main="")
+pacf(as.numeric(ar4.resid),lag.max=40, main="")
+```
+
+```{r, echo=FALSE, include=FALSE}
+# Shapiro-Wilk test for normality
+shapiro.test(ar4.resid)
+```
+
+
+
+```{r, echo=FALSE, results='asis'}
+Box.test(ar4.resid, lag=4, type="Ljung", fitdf=1)
+Box.test(ar4.resid, lag=8, type="Ljung", fitdf=1)
+Box.test(ar4.resid, lag=12, type="Ljung", fitdf=1)
+```
+
+Following a similar process to that of the MA(4) model, I conducted a thorough analysis of the AR(4) model, which included fitting the model to the data and assessing model diagnostics. During the evaluation phase, the model's performance was scrutinized using the same criteria as applied to the MA(4) model. Crucially, the Box-Ljung test performed on the residuals resulted in p-values below 0.05, indicating inadequacy in the AR(4) model. Given this result, I decided not to continue with performance assessments on the test data, as the inadequacy of the model was already confirmed. 
+
+
+
+\newpage
+
+
+
+## Automated Model Selection with auto.arima
+
+Following the assessment of MA(4) and AR(4) models, I transitioned to the auto.arima function from the forecast package. This tool automatically selects the best ARIMA model based on the AIC, a metric that balances model fit and complexity. By leveraging auto.arima, I aimed to streamline model selection and identify the most suitable ARIMA model for the dataset. This approach not only saves time but also ensures that the chosen model is statistically robust and optimally balanced in terms of fit and complexity.
+
+```{r, echo=FALSE, results='show', message=FALSE}
+library(forecast)
+arima.fit <- auto.arima(aspusgr.calib, ic="aic")
+arima.fit
+```
+
+```{r, include=FALSE}
+arima.fit.resid=na.omit(arima.fit$residuals)
+```
+
+```{r, echo=FALSE, fig.cap="Residual Diagnostic Plots of auto-arima model(2,2,1)"}
+library(TSA)
+par(mfrow=c(2,2))
+ts.plot(arima.fit.resid,main="Residuals from auto arima fit" )
+qqnorm(arima.fit.resid,main="Normal Q-Q plot",xlab="resid"); qqline(arima.fit.resid)
+acf(as.numeric(arima.fit.resid), lag.max=40, main="")
+pacf(as.numeric(arima.fit.resid),lag.max=40, main="")
+
+```
+
+
+```{r, echo=FALSE, include=FALSE}
+# Shapiro-Wilk test for normality
+shapiro.test(arima.fit.resid)
+```
+
+
+```{r, echo=FALSE, results='asis'}
+Box.test(arima.fit.resid, lag=4, type="Ljung", fitdf=1)
+Box.test(arima.fit.resid, lag=8, type="Ljung", fitdf=1)
+Box.test(arima.fit.resid, lag=12, type="Ljung", fitdf=1)
+```
+
+```{r, include=FALSE}
+aspusgr.arima.fore <- predict(arima.fit, n.ahead=12)
+aspusgr.arima.fore
+```
+
+
+```{r, echo=FALSE, include=FALSE}
+err.arima=aspusgr.hold - aspusgr.arima.fore$pred
+me.arima=mean(err.arima)
+mpe.arima=100*(mean(err.arima/aspusgr.hold))
+mse.arima=sum(err.arima**2)/length(err.arima)
+mae.arima=mean(abs(err.arima))
+mape.arima=100*(mean(abs((err.arima)/aspusgr.hold)))
+mae.arima
+mse.arima
+mape.arima
+
+```
+
+The ARIMA (2, 2, 1) model underwent diagnostic checks akin to those performed on the preceding models. These diagnostics involved assessing the residuals for autocorrelation using ACF and PACF plots. The absence of significant autocorrelation in the residuals indicated a satisfactory fit of the ARIMA model to the data.
+
+
+
+```{r, echo=FALSE, fig.show='asis', fig.cap="Comparison of actual house prices (black) against ARIMA (2, 2, 1) model predictions (red) with 95% confidence intervals (blue dashed lines) for the holdout test period." }
+# 95% z-intervals
+U.arima.95 <- aspusgr.arima.fore$pred + 1.96*aspusgr.arima.fore$se
+L.arima.95 <- aspusgr.arima.fore$pred - 1.96*aspusgr.arima.fore$se
+quarter = 190:243
+plot(quarter,aspusgr[quarter],type="o",xlim=c(190,250),
+ylab="Price",ylim=c(min(L.arima.95), max(U.arima.95))) # data
+lines(aspusgr.arima.fore$pred,col="red",type="o") # point forecasts
+lines(U.arima.95,col="blue",lty="dashed") # upper limit
+lines(L.arima.95,col="blue",lty="dashed") # lower limit
+```
+
+
+
+## Table of Results for the ARIMA Models
+
+```{r, echo=FALSE, results='hold'}
+library(tibble)
+results_table <- tibble(
+  Model = c("MA(4)", "Auto Arima(2,2,1)"),
+  MAE = c(mae.ma4, mae.arima),
+  MSE = c(mse.ma4, mse.arima),
+  MAPE = c(mape.ma4, mape.arima)
+)
+print(results_table)
+```
+
+
+The models are evaluated based on three common metrics: Mean Absolute Error (MAE), Mean Squared Error (MSE), and Mean Absolute Percentage Error (MAPE). The Auto ARIMA(2,1,1) model demonstrates superior performance across all metrics, with a MAE of 0.1835378, MSE of 0.04045227, and MAPE of 1.396267, compared to the MA(4) model which exhibits a MAE of 0.1993138, MSE of 0.04807906, and MAPE of 1.516112. Notably, while an AR(4) model was also considered during the modeling process, it failed to pass the Box-Ljung test, a check for randomness in the residuals, indicating that the model's residuals were not independently distributed. Consequently, the AR(4) model was not utilized for predictions on the test set, leaving the Auto ARIMA(2,2,1) as the preferred model given its robustness and lower error metrics, indicating a closer fit to the observed data.
+
+
+
+
+## Including Exogenous Predictor
+
+In an effort to augment the analytical framework for examining the Average Sales Price of Houses Sold in the United States (ASPUS), I expanded our exploration into the realm of ARMAX modeling. By integrating Gross Domestic Product (GDP) as an exogenous variable, the goal is not necessarily to forecast, but rather to investigate the potential of this expanded model to better fit the complex nature of the data. The inclusion of GDP is particularly aimed at understanding the ramifications of significant economic events, such as the notable increase in ASPUS witnessed during the COVID-19 pandemic in 2020. This addition is expected to shed light on the intricate effects that such macroeconomic factors may exert on the housing market, providing a more holistic view of the variables at play. The use of the ARMAX model thus serves as an investigative tool to determine the viability of incorporating external economic indicators in explaining the variations observed in ASPUS.
+
+
+```{r, echo=FALSE}
+data2 <- read.csv("/Users/victoriaa/Desktop/STAT5825/DATA/GDP.csv")
+gdp <- ts(data2$GDP, start = c(1963, 1), frequency = 4)
+attributes(gdp)
+length(gdp)
+```
+
+
+
+
+Having achieved stationarity in the doubly differenced GDP data, I then examined the sample Autocorrelation Functions (ACFs) of both the doubly differenced ASPUS and GDP. The ACF plots were assessed to visually confirm the behavior indicative of white noise. After the first significant lag, both sample ACFs exhibited the randomness expected of a stationary white noise process, providing a solid foundation for further ARMAX modeling with the inclusion of GDP as an exogenous predictor. This process set the stage for a nuanced analysis that considers the interplay of broader economic forces with the housing market.
+
+```{r, echo=FALSE, fig.cap="Time Series Plot of GDP"}
+ts.plot(gdp, main="GDP")
+```
+
+Quarterly Gross Domestic Product (GDP) data was introduced, measured in billions of dollars, aligning with the timeframe of the Average Sales Price of Houses Sold in the United States (ASPUS). Upon visual examination of the plotted GDP time series, the upward trend and fluctuations in amplitude were as anticipated, characteristic of economic growth over time, particularly marked by the sharp contraction and subsequent recovery around 2020 — likely reflecting the economic impact of the COVID-19 pandemic. 
+
+
+To address nonstationarity, an initial round of differencing was applied to the GDP data. However, an Augmented Dickey-Fuller test suggested that the differenced series was still nonstationary, returning a p-value of 0.99, far above the typical threshold for stationarity. Consequently, a second round of differencing was performed, which successfully yielded a stationary series.
+
+```{r, echo=FALSE, include=FALSE}
+ts.plot(diff(gdp))
+acf(as.vector(diff(gdp)), main="", lag.max = 60)
+```
+
+
+```{r, echo=FALSE, include=FALSE}
+ar( diff(aspus))
+adfTest( diff(gdp), lags=21, type = "c")
+```
+
+
+```{r, echo=FALSE, include=FALSE}
+ar(diff(diff(gdp)))
+adfTest(diff(diff(gdp)), lags=11, type = "c")
+```
+
+
+```{r, echo=FALSE, fig.cap="ACF and PACF of doubly differenced GDP and ASPUS"}
+
+par(mfrow=c(1,2))
+acf(as.vector(diff(diff(gdp))), 60, main="Sample ACF of doubly diff GDP", ylab="GDP")
+acf(as.vector(diff(diff(aspus))),60,main="Sample ACF of doubly diff ASPUS", ylab="ASPUS")
+```
+
+
+In the analysis, Cross-Correlation Function (CCF) was employed to assess the relationship between GDP and ASPUS over time. The CCF was particularly informative, revealing significant lags that indicate how GDP and ASPUS interact across different quarters. The most significant finding is at lag \( h = +3 \), where a clear correlation suggests that GDP changes precede changes in ASPUS by three quarters. Correlations at \( h = 0 \) and \( h = -3 \) also emerged, indicating a possible immediate relationship and a potential influence of ASPUS on GDP three quarters earlier. These insights from the CCF are crucial for our next steps, particularly in determining how to incorporate GDP as an exogenous variable in an ARMAX model, to better understand the dynamics between these two economic measures.
+
+```{r, echo=FALSE, fig.cap="Sample CCF plot of GDP and ASPUS", fig.pos='H'}
+stable.gdp <- diff(diff(gdp))
+stable.aspus <- diff(diff(aspus))
+
+ccf(stable.gdp, stable.aspus,24,main="Sample CCF of GDP and ASPUS")
+```
+
+\newpage
+
+```{r, echo=FALSE, include=FALSE}
+sales.price <- ts.intersect(stable.aspus, stable.gdp, dframe=TRUE)
+attributes(sales.price$stable.aspus)
+attributes(sales.price$stable.gdp)
+```
+
+
+
+
+```{r, echo=FALSE, results='show'}
+lmfit <- lm(stable.aspus ~ stable.gdp,
+            data=sales.price)
+summary(lmfit)
+```
+
+When GDP was introduced as a predictor in a linear model at a lag of 3 quarters, the resulting estimate was statistically insignificant. This insignificance was consistent for other lags identified as significant in the CCF, including at -3 quarters.
+
+Contrastingly, when GDP was included as a contemporaneous predictor, the estimate was significant. This indicates that while the CCF suggested potential predictive relationships at various lags, only the contemporaneous relationship between GDP and ASPUS proved to be significant in the context of a linear model. Consequently, the contemporaneous GDP value was retained as a predictor in the linear model, as it provided a statistically significant explanation for variations in ASPUS.
+
+
+After fitting a linear model with contemporaneous GDP as a predictor for ASPUS, the residuals were carefully examined for any autocorrelation that might suggest further modeling opportunities. The time series plot of the residuals, complemented by their ACF and PACF, was scrutinized for patterns. The stationarity of these residuals was confirmed via an ADF test, affirming the appropriateness of pursuing an ARMAX model.
+
+Based on the behavior observed in the ACF and PACF, an ARMA(3, 0, 1) was selected to model the differenced ASPUS and GDP data, utilizing the contemporaneous GDP as an exogenous variable. The choice of this particular ARMA model was informed by the lags at which significant autocorrelations and partial autocorrelations appeared, suggesting that this model would adequately capture the dynamics present in the time series data.
+
+```{r, echo=FALSE, fig.cap="Residual time series plot of wt"}
+wt <- residuals(lmfit)
+ts.plot(wt, main="Residual Plot")
+```
+
+```{r, echo=FALSE, fig.cap="ACF and PACF of wt"}
+par(mfrow=c(1,2))
+acf(wt, lag.max=72, main="ACF of Regression Residuals")
+pacf(wt, lag.max=72, main="PACF of Regression Residuals")
+```
+
+\newpage
+
+```{r, echo=FALSE, include=FALSE}
+library(fUnitRoots)
+ar(wt)
+
+adfTest(wt, lags=20, type='c')
+```
+
+
+**ARMAX fit result**
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(astsa)
+armaxfit <- with(sales.price,sarima(stable.aspus, p=3, d=0, q=1, xreg=cbind(stable.gdp),
+                     no.constant = FALSE, details = TRUE))
+```
+
+
+```{r, echo=FALSE, include=FALSE}
+armaxfit
+```
+
+An ARMAX model was successfully fitted to the data using the SARIMA function, which integrates the significant contemporaneous relationship between GDP and ASPUS. The model's estimates indicate that all AR and MA coefficients are significant at conventional levels, with p-values well below the threshold of 0.05. Notably, the inclusion of contemporaneous GDP as an exogenous variable (xreg) in the ARMAX model yielded a significant estimate, emphasizing its influence on ASPUS within the modeled period.
+
+Model diagnostics were conducted to evaluate the goodness of fit. The standardized residuals over time do not display any obvious patterns or trends, suggesting that the model captures the data's underlying structure effectively. The ACF of residuals, which ideally should show no significant correlations for successive lags, appears to confirm this, with most lags within the confidence bounds. Moreover, the Normal Q-Q plot of standardized residuals adheres closely to the line, suggesting that the residuals are normally distributed 
+
+Lastly, the p-values for the Ljung-Box statistic, are above the typical significance level. This implies that the residuals can be considered random 'white noise', which is a desirable property indicating that the model has successfully captured the information in the data.
+
+Overall, the ARMAX model demonstrates satisfactory statistical properties, indicating that it is well-specified and that contemporaneous GDP is a significant predictor of ASPUS within this modeling framework.
+
+
+
+## Limitations of Analysis
+
+The analysis of the ARMAX model’s capacity to predict the Average Sales Price of Houses Sold in the United States, while incorporating GDP as a contemporaneous variable, encounters several methodological constraints. Chief among these is the limitation arising from model validation—or the lack thereof. The model's predictive accuracy was not tested against an unseen test set, a step that is critical for assessing forecast reliability and for benchmarking against other models, such as previously fitted ARIMA models. Furthermore, the deviations in the tails of the Q-Q plot raise concerns about the normality of residuals, suggesting that extreme values could be more prevalent than the normal distribution would predict, thus potentially affecting the robustness of statistical conclusions. The analysis also potentially overlooks the multifaceted economic factors and structural breaks, like the economic impact of COVID-19, which may not be entirely explained by the variables and the linear approach adopted. The assumption of normality and the decision to not validate the model with out-of-sample testing reflect gaps that must be carefully weighed when interpreting the results and before applying the model for real-world prediction or analysis. Future iterations of this work would benefit from addressing these issues to strengthen the analytical framework and the subsequent insights drawn from it.
+
+## Conclusion
+
+This study has undertaken a detailed examination of housing price trends in the United States from 1963 to 2023, utilizing a range of statistical models to decipher the underlying patterns. The Auto ARIMA(2,2,1) emerged as particularly effective, demonstrating superior performance over the MA(4) model in terms of prediction accuracy. Expanding upon these insights, the introduction of an ARMAX model, which incorporated contemporaneous GDP, marked a significant advancement in the analytical approach, revealing how immediate economic conditions impact housing prices.
+
+The inclusion of GDP in the ARMAX model highlights its value as a predictor, emphasizing the dynamic relationship between economic activity and the housing market. This model enriches our understanding by illustrating the direct effects of economic changes on housing prices, thus providing a more holistic view of the economic factors at play.
+
+The findings from this study enhance the existing body of knowledge on housing market dynamics and offer valuable insights for stakeholders in making informed decisions in real estate investment and policy formulation. Future efforts in this research area may build on this foundation, exploring further the complex interactions between the economy and housing markets.
+
+
+## Reference
+
+U.S. Census Bureau and U.S. Department of Housing and Urban Development, Average Sales Price of Houses Sold for the United States [ASPUS], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/ASPUS, March 27, 2024.
+
+U.S. Bureau of Economic Analysis, Gross Domestic Product [GDP], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/GDP, April 26, 2024.
+
+
+
+
+
+
